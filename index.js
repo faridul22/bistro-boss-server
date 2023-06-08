@@ -185,6 +185,7 @@ async function run() {
             res.send(result)
         })
 
+        // ---------------------------Payment--------------------------
         // create payment intent
         app.post('/create-payment-intent', verifyJWT, async (req, res) => {
             const { price } = req.body;
@@ -201,7 +202,7 @@ async function run() {
             })
         })
 
-        // payment related pais
+        // payment related apis
         app.post('/payments', verifyJWT, async (req, res) => {
             const payment = req.body;
             const insertResult = await paymentCollection.insertOne(payment);
@@ -211,6 +212,7 @@ async function run() {
 
             res.send({ insertResult, deleteResult })
         })
+        //----------------------------------------------------------
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
