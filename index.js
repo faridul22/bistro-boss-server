@@ -2,7 +2,8 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-require('dotenv').config()
+require('dotenv').config();
+const stripe = require("stripe")(process.env.PAYMENT_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
 
@@ -15,6 +16,7 @@ const verifyJWT = (req, res, next) => {
     if (!authorization) {
         return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
+
     // bearer token
     const token = authorization.split(' ')[1];
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -52,6 +54,7 @@ async function run() {
         const menuCollection = client.db("bistroBossDB").collection("menu");
         const reviewsCollection = client.db("bistroBossDB").collection("reviews");
         const cardsCollection = client.db("bistroBossDB").collection("cards");
+        const paymentCollection = client.db("bistroBossDB").collection("payments");
 
         // web token related api
         app.post('/jwt', (req, res) => {
@@ -180,6 +183,33 @@ async function run() {
             const query = { _id: new ObjectId(id) }
             const result = await cardsCollection.deleteOne(query);
             res.send(result)
+        })
+
+        // create payment intent
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = price * 100;
+            // console.log(price, amount)
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            })
+            res.send({
+                clientSecret: paymentIntent.client_secret,
+            })
+        })
+
+        // payment related pais
+        app.post('/payments', verifyJWT, async (req, res) => {
+            const payment = req.body;
+            const insertResult = await paymentCollection.insertOne(payment);
+
+            const query = { _id: { $in: payment.cardsItems.map(id => new ObjectId(id)) } }
+            const deleteResult = await cardsCollection.deleteMany(query);
+
+            res.send({ insertResult, deleteResult })
         })
 
         // Send a ping to confirm a successful connection
